@@ -27,12 +27,6 @@ export default function DashboardScreen() {
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.content}>
         <View style={styles.header}>
           <Text style={styles.title}>Welcome, Maria!</Text>
-          <TouchableOpacity 
-            style={styles.homeButton}
-            onPress={() => router.push('/')}
-          >
-            <Text style={styles.homeButtonText}>🏠 Home</Text>
-          </TouchableOpacity>
         </View>
         
         <View style={styles.statusCard}>
@@ -236,9 +230,6 @@ const styles = StyleSheet.create({
     paddingBottom: 100, // Add padding to account for bottom nav
   },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingTop: 60,
     paddingHorizontal: 24,
     paddingBottom: 16,
@@ -246,16 +237,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '800',
-  },
-  homeButton: {
-    backgroundColor: '#F5F5F5',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-  },
-  homeButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
   },
   statusCard: {
     flexDirection: 'row',

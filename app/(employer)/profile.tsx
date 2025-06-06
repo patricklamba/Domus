@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Image, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Image, ScrollView, Platform } from 'react-native';
 import { router } from 'expo-router';
 import { EMPLOYERS, CLEANERS } from '@/data/mockData';
 import { Wallet, History, Crown, ChevronRight, ArrowLeft } from 'lucide-react-native';
@@ -175,9 +175,11 @@ const styles = StyleSheet.create({
   balanceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
   balanceInfo: {
     marginLeft: 12,
+    flex: 1,
   },
   balanceLabel: {
     fontSize: 14,
@@ -190,13 +192,42 @@ const styles = StyleSheet.create({
   },
   loadButton: {
     backgroundColor: '#2ecc71',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingHorizontal: Platform.select({
+      ios: 18,
+      android: 16,
+      default: 16,
+    }),
+    paddingVertical: Platform.select({
+      ios: 12,
+      android: 10,
+      default: 10,
+    }),
     borderRadius: 8,
+    minWidth: Platform.select({
+      ios: 100,
+      android: 95,
+      default: 95,
+    }),
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#2ecc71',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 3,
+    elevation: 3,
   },
   loadButtonText: {
     color: '#fff',
     fontWeight: '600',
+    fontSize: Platform.select({
+      ios: 15,
+      android: 14,
+      default: 14,
+    }),
+    textAlign: 'center',
   },
   subscriptionCard: {
     margin: 20,
