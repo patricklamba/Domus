@@ -39,39 +39,6 @@ interface JobInputProps {
   onChangeText: (text: string) => void;
 }
 
-// Composant Input réutilisable - DÉPLACÉ EN DEHORS du composant principal
-const JobInput: React.FC<JobInputProps> = ({ 
-  icon, 
-  label, 
-  field, 
-  placeholder, 
-  keyboardType = 'default', 
-  multiline = false,
-  value,
-  onChangeText 
-}) => (
-  <View style={styles.inputGroup}>
-    <Text style={styles.label}>{label}</Text>
-    <View style={[styles.inputContainer, multiline && styles.textAreaContainer]}>
-      {icon && React.cloneElement(icon, { 
-        size: 20, 
-        color: '#666', 
-        style: styles.inputIcon 
-      })}
-      <TextInput
-        style={[styles.input, multiline && styles.textArea]}
-        placeholder={placeholder}
-        value={value}
-        onChangeText={onChangeText}
-        keyboardType={keyboardType}
-        multiline={multiline}
-        numberOfLines={multiline ? 4 : 1}
-        textAlignVertical={multiline ? 'top' : 'center'}
-      />
-    </View>
-  </View>
-);
-
 export default function NewJobScreen() {
   // State regroupé dans un objet avec typage
   const [jobDetails, setJobDetails] = useState<JobDetails>({
@@ -82,6 +49,39 @@ export default function NewJobScreen() {
     pricePerDay: '',
     notes: ''
   });
+
+  // Composant Input réutilisable - DÉPLACÉ À L'INTÉRIEUR du composant principal
+  const JobInput: React.FC<JobInputProps> = ({ 
+    icon, 
+    label, 
+    field, 
+    placeholder, 
+    keyboardType = 'default', 
+    multiline = false,
+    value,
+    onChangeText 
+  }) => (
+    <View style={styles.inputGroup}>
+      <Text style={styles.label}>{label}</Text>
+      <View style={[styles.inputContainer, multiline && styles.textAreaContainer]}>
+        {icon && React.cloneElement(icon, { 
+          size: 20, 
+          color: '#666', 
+          style: styles.inputIcon 
+        })}
+        <TextInput
+          style={[styles.input, multiline && styles.textArea]}
+          placeholder={placeholder}
+          value={value}
+          onChangeText={onChangeText}
+          keyboardType={keyboardType}
+          multiline={multiline}
+          numberOfLines={multiline ? 4 : 1}
+          textAlignVertical={multiline ? 'top' : 'center'}
+        />
+      </View>
+    </View>
+  );
 
   // Gestion centralisée des changements avec types
   const handleChange = (field: JobDetailKeys, value: string): void => {
@@ -180,8 +180,6 @@ export default function NewJobScreen() {
     // Ici vous ajouterez l'appel API pour sauvegarder le job
     // console.log('Job details:', jobDetails);
   };
-
-
 
   return (
     <KeyboardAvoidingView 
