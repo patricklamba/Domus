@@ -88,6 +88,52 @@ export default function NewJobScreen() {
     setJobDetails(prev => ({ ...prev, [field]: value }));
   };
 
+  // Formatage automatique pour l'heure (HH:MM)
+  const handleTimeChange = (value: string): void => {
+    // Supprimer tous les caractères non numériques
+    const numericValue = value.replace(/\D/g, '');
+    
+    let formattedTime = numericValue;
+    
+    // Formater automatiquement avec ":"
+    if (numericValue.length >= 3) {
+      const hours = numericValue.slice(0, 2);
+      const minutes = numericValue.slice(2, 4);
+      formattedTime = `${hours}:${minutes}`;
+    }
+    
+    // Limiter à 5 caractères (HH:MM)
+    if (formattedTime.length <= 5) {
+      setJobDetails(prev => ({ ...prev, time: formattedTime }));
+    }
+  };
+
+  // Formatage automatique pour la date (DD/MM/YYYY)
+  const handleDateChange = (value: string): void => {
+    // Supprimer tous les caractères non numériques
+    const numericValue = value.replace(/\D/g, '');
+    
+    let formattedDate = numericValue;
+    
+    // Formater automatiquement avec "/"
+    if (numericValue.length >= 3) {
+      const day = numericValue.slice(0, 2);
+      const month = numericValue.slice(2, 4);
+      const year = numericValue.slice(4, 8);
+      
+      if (numericValue.length <= 4) {
+        formattedDate = `${day}/${month}`;
+      } else {
+        formattedDate = `${day}/${month}/${year}`;
+      }
+    }
+    
+    // Limiter à 10 caractères (DD/MM/YYYY)
+    if (formattedDate.length <= 10) {
+      setJobDetails(prev => ({ ...prev, date: formattedDate }));
+    }
+  };
+
   const calculateTotalPrice = (): string => {
     const days = parseInt(jobDetails.duration) || 0;
     const price = parseInt(jobDetails.pricePerDay) || 0;
@@ -149,8 +195,9 @@ export default function NewJobScreen() {
           label="Start Date"
           field="date"
           placeholder="DD/MM/YYYY"
+          keyboardType="numeric"
           value={jobDetails.date}
-          onChangeText={(text) => handleChange('date', text)}
+          onChangeText={handleDateChange}
         />
 
         <JobInput
@@ -158,8 +205,9 @@ export default function NewJobScreen() {
           label="Start Time"
           field="time"
           placeholder="HH:MM"
+          keyboardType="numeric"
           value={jobDetails.time}
-          onChangeText={(text) => handleChange('time', text)}
+          onChangeText={handleTimeChange}
         />
 
         <JobInput
