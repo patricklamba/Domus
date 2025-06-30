@@ -1,5 +1,5 @@
 import { Tabs } from 'expo-router';
-import { Home, Search, User, MessageCircle } from 'lucide-react-native';
+import { Chrome as Home, Search, User, MessageCircle } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 
