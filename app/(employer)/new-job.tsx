@@ -148,7 +148,7 @@ export default function NewJobScreen() {
           <ArrowLeft size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Create New Job</Text>
-        <View style={{ width: 40 }} />
+        <View style={{ width: 40 }}></View>
       </View>
 
       <ScrollView 
