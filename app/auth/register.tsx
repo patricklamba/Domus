@@ -12,7 +12,7 @@ import {
 import { Link, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '@/contexts/AuthContext';
-import { Eye, EyeOff, Mail, Lock, User, Phone, Briefcase, Mop } from 'lucide-react-native';
+import { Eye, EyeOff, Mail, Lock, User, Phone, Briefcase, Hop as Mop } from 'lucide-react-native';
 
 export default function RegisterScreen() {
   const [formData, setFormData] = useState({

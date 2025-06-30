@@ -10,7 +10,7 @@ import {
   Image
 } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
-import { Edit3, Save, X, Camera } from 'lucide-react-native';
+import { CreditCard as Edit3, Save, X, Camera } from 'lucide-react-native';
 
 export default function ProfileScreen() {
   const { profile, updateProfile } = useAuth();
