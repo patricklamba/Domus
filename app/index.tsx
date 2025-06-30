@@ -1,9 +1,29 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ImageBackground } from 'react-native';
-import { Link, router } from 'expo-router';
+import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function HomeScreen() {
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && user) {
+      // User is authenticated, redirect to tabs
+      router.replace('/(tabs)');
+    }
+  }, [user, loading]);
+
+  // Show loading state while checking authentication
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
+
+  // Show landing page for unauthenticated users
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -22,14 +42,14 @@ export default function HomeScreen() {
             <View style={styles.buttonContainer}>
               <TouchableOpacity 
                 style={[styles.button, styles.loginButton]} 
-                onPress={() => router.push('/login')}
+                onPress={() => router.push('/auth/login')}
               >
-                <Text style={styles.buttonText}>🔵 Log In</Text>
+                <Text style={styles.buttonText}>🔵 Sign In</Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
                 style={[styles.button, styles.registerButton]}
-                onPress={() => router.push('/register')}
+                onPress={() => router.push('/auth/register')}
               >
                 <Text style={styles.buttonText}>🟢 Create Account</Text>
               </TouchableOpacity>
@@ -44,6 +64,16 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
+  loadingText: {
+    fontSize: 18,
+    color: '#666',
   },
   backgroundImage: {
     flex: 1,
