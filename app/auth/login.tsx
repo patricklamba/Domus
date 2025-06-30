@@ -1,27 +1,56 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View, TextInput, TouchableOpacity, Alert } from 'react-native';
+import { 
+  StyleSheet, 
+  Text, 
+  View, 
+  TextInput, 
+  TouchableOpacity, 
+  Alert,
+  KeyboardAvoidingView,
+  Platform
+} from 'react-native';
 import { Link, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function LoginScreen() {
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { signInWithPhone } = useAuth();
   
-  const handleLogin = () => {
+  const handleLogin = async () => {
     if (phoneNumber.length < 9) {
       Alert.alert('Error', 'Please enter a valid phone number');
       return;
     }
     
-    const lastDigit = parseInt(phoneNumber.slice(-1));
-    if (lastDigit % 2 === 0) {
-      router.replace('/(employer)/dashboard');
+    setLoading(true);
+    
+    // Format phone number for Angola (+244)
+    const formattedPhone = phoneNumber.startsWith('+244') 
+      ? phoneNumber 
+      : `+244${phoneNumber}`;
+    
+    const { error } = await signInWithPhone(formattedPhone);
+    
+    if (error) {
+      Alert.alert('Error', error.message);
+      setLoading(false);
     } else {
-      router.replace('/(cleaner)/dashboard');
+      // Navigate to OTP verification
+      router.push({
+        pathname: '/auth/verify-otp',
+        params: { phone: formattedPhone, type: 'login' }
+      });
+      setLoading(false);
     }
   };
   
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView 
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+    >
       <StatusBar style="dark" />
       <View style={styles.header}>
         <Text style={styles.emoji}>🔑</Text>
@@ -31,39 +60,39 @@ export default function LoginScreen() {
       
       <View style={styles.form}>
         <Text style={styles.label}>Phone Number</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Enter your phone number"
-          placeholderTextColor="#A0A0A0"
-          keyboardType="phone-pad"
-          value={phoneNumber}
-          onChangeText={setPhoneNumber}
-        />
+        <View style={styles.phoneInputContainer}>
+          <Text style={styles.countryCode}>+244</Text>
+          <TextInput
+            style={styles.phoneInput}
+            placeholder="912345678"
+            placeholderTextColor="#A0A0A0"
+            keyboardType="phone-pad"
+            value={phoneNumber}
+            onChangeText={setPhoneNumber}
+            maxLength={9}
+          />
+        </View>
         
         <TouchableOpacity 
-          style={[styles.button, phoneNumber.length < 9 ? styles.buttonDisabled : null]}
+          style={[styles.button, (phoneNumber.length < 9 || loading) ? styles.buttonDisabled : null]}
           onPress={handleLogin}
-          disabled={phoneNumber.length < 9}
+          disabled={phoneNumber.length < 9 || loading}
         >
-          <Text style={styles.buttonText}>Continue</Text>
+          <Text style={styles.buttonText}>
+            {loading ? 'Sending...' : 'Send Verification Code'}
+          </Text>
         </TouchableOpacity>
         
         <View style={styles.linkContainer}>
           <Text style={styles.linkText}>Don't have an account? </Text>
-          <Link href="/register" asChild>
+          <Link href="/auth/register" asChild>
             <TouchableOpacity>
               <Text style={styles.link}>Create Account</Text>
             </TouchableOpacity>
           </Link>
         </View>
       </View>
-      
-      <View style={styles.demoHelp}>
-        <Text style={styles.demoText}>
-          🔍 Demo Help: Enter any phone number ending with an even digit for employer view, odd digit for cleaner view
-        </Text>
-      </View>
-    </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -100,13 +129,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
   },
-  input: {
+  phoneInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     height: 60,
     backgroundColor: '#F5F5F5',
     borderRadius: 12,
     paddingHorizontal: 16,
-    fontSize: 18,
     marginBottom: 24,
+  },
+  countryCode: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginRight: 8,
+  },
+  phoneInput: {
+    flex: 1,
+    fontSize: 18,
+    color: '#333',
   },
   button: {
     height: 60,
@@ -137,21 +178,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#3498db',
     fontWeight: '600',
-  },
-  demoHelp: {
-    position: 'absolute',
-    bottom: 40,
-    left: 24,
-    right: 24,
-    padding: 16,
-    backgroundColor: '#FFF9E0',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#FFE066',
-  },
-  demoText: {
-    fontSize: 14,
-    color: '#5D534C',
-    textAlign: 'center',
   },
 });
