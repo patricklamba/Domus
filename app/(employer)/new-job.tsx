@@ -8,14 +8,73 @@ import {
   ScrollView,
   Alert,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  KeyboardTypeOptions
 } from 'react-native';
 import { router } from 'expo-router';
 import { ArrowLeft, Calendar, Clock, MapPin, DollarSign } from 'lucide-react-native';
 
+// Types pour les détails du job
+interface JobDetails {
+  location: string;
+  date: string;
+  time: string;
+  duration: string;
+  pricePerDay: string;
+  notes: string;
+}
+
+// Type pour les clés de JobDetails
+type JobDetailKeys = keyof JobDetails;
+
+// Props pour le composant JobInput
+interface JobInputProps {
+  icon?: React.ReactElement<any>;
+  label: string;
+  field: JobDetailKeys;
+  placeholder: string;
+  keyboardType?: KeyboardTypeOptions;
+  multiline?: boolean;
+  value: string;
+  onChangeText: (text: string) => void;
+}
+
+// Composant Input réutilisable - DÉPLACÉ EN DEHORS du composant principal
+const JobInput: React.FC<JobInputProps> = ({ 
+  icon, 
+  label, 
+  field, 
+  placeholder, 
+  keyboardType = 'default', 
+  multiline = false,
+  value,
+  onChangeText 
+}) => (
+  <View style={styles.inputGroup}>
+    <Text style={styles.label}>{label}</Text>
+    <View style={[styles.inputContainer, multiline && styles.textAreaContainer]}>
+      {icon && React.cloneElement(icon, { 
+        size: 20, 
+        color: '#666', 
+        style: styles.inputIcon 
+      })}
+      <TextInput
+        style={[styles.input, multiline && styles.textArea]}
+        placeholder={placeholder}
+        value={value}
+        onChangeText={onChangeText}
+        keyboardType={keyboardType}
+        multiline={multiline}
+        numberOfLines={multiline ? 4 : 1}
+        textAlignVertical={multiline ? 'top' : 'center'}
+      />
+    </View>
+  </View>
+);
+
 export default function NewJobScreen() {
-  // MODIF: State regroupé dans un objet
-  const [jobDetails, setJobDetails] = useState({
+  // State regroupé dans un objet avec typage
+  const [jobDetails, setJobDetails] = useState<JobDetails>({
     location: '',
     date: '',
     time: '',
@@ -24,24 +83,24 @@ export default function NewJobScreen() {
     notes: ''
   });
 
-  // MODIF: Gestion centralisée des changements
-  const handleChange = (field, value) => {
+  // Gestion centralisée des changements avec types
+  const handleChange = (field: JobDetailKeys, value: string): void => {
     setJobDetails(prev => ({ ...prev, [field]: value }));
   };
 
-  const calculateTotalPrice = () => {
+  const calculateTotalPrice = (): string => {
     const days = parseInt(jobDetails.duration) || 0;
     const price = parseInt(jobDetails.pricePerDay) || 0;
     return (days * price).toLocaleString('en-US');
   };
 
-  // MODIF: Validation améliorée
-  const validateForm = () => {
+  // Validation améliorée avec type de retour
+  const validateForm = (): boolean => {
     const { location, date, time, duration, pricePerDay } = jobDetails;
-    return location && date && time && duration && pricePerDay;
+    return !!(location && date && time && duration && pricePerDay);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = (): void => {
     if (!validateForm()) return;
     
     Alert.alert(
@@ -54,29 +113,7 @@ export default function NewJobScreen() {
     // console.log('Job details:', jobDetails);
   };
 
-  // MODIF: Composant Input réutilisable
-  const JobInput = ({ icon, label, field, placeholder, keyboardType = 'default', multiline = false }) => (
-    <View style={styles.inputGroup}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={[styles.inputContainer, multiline && styles.textAreaContainer]}>
-        {icon && React.cloneElement(icon, { 
-          size: 20, 
-          color: '#666', 
-          style: styles.inputIcon 
-        })}
-        <TextInput
-          style={[styles.input, multiline && styles.textArea]}
-          placeholder={placeholder}
-          value={jobDetails[field]}
-          onChangeText={(text) => handleChange(field, text)}
-          keyboardType={keyboardType}
-          multiline={multiline}
-          numberOfLines={multiline ? 4 : 1}
-          textAlignVertical={multiline ? 'top' : 'center'}
-        />
-      </View>
-    </View>
-  );
+
 
   return (
     <KeyboardAvoidingView 
@@ -103,6 +140,8 @@ export default function NewJobScreen() {
           label="Location"
           field="location"
           placeholder="Enter exact address"
+          value={jobDetails.location}
+          onChangeText={(text) => handleChange('location', text)}
         />
 
         <JobInput
@@ -110,6 +149,8 @@ export default function NewJobScreen() {
           label="Start Date"
           field="date"
           placeholder="DD/MM/YYYY"
+          value={jobDetails.date}
+          onChangeText={(text) => handleChange('date', text)}
         />
 
         <JobInput
@@ -117,6 +158,8 @@ export default function NewJobScreen() {
           label="Start Time"
           field="time"
           placeholder="HH:MM"
+          value={jobDetails.time}
+          onChangeText={(text) => handleChange('time', text)}
         />
 
         <JobInput
@@ -125,6 +168,8 @@ export default function NewJobScreen() {
           field="duration"
           placeholder="Number of days"
           keyboardType="numeric"
+          value={jobDetails.duration}
+          onChangeText={(text) => handleChange('duration', text)}
         />
 
         <JobInput
@@ -133,6 +178,8 @@ export default function NewJobScreen() {
           field="pricePerDay"
           placeholder="Amount in Kz"
           keyboardType="numeric"
+          value={jobDetails.pricePerDay}
+          onChangeText={(text) => handleChange('pricePerDay', text)}
         />
 
         {jobDetails.duration && jobDetails.pricePerDay && (
@@ -147,6 +194,8 @@ export default function NewJobScreen() {
           field="notes"
           placeholder="Special instructions, preferences..."
           multiline={true}
+          value={jobDetails.notes}
+          onChangeText={(text) => handleChange('notes', text)}
         />
 
         <TouchableOpacity
