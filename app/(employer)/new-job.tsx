@@ -90,47 +90,69 @@ export default function NewJobScreen() {
 
   // Formatage automatique pour l'heure (HH:MM)
   const handleTimeChange = (value: string): void => {
-    // Supprimer tous les caractères non numériques
-    const numericValue = value.replace(/\D/g, '');
-    
-    let formattedTime = numericValue;
-    
-    // Formater automatiquement avec ":"
-    if (numericValue.length >= 3) {
-      const hours = numericValue.slice(0, 2);
-      const minutes = numericValue.slice(2, 4);
-      formattedTime = `${hours}:${minutes}`;
-    }
-    
-    // Limiter à 5 caractères (HH:MM)
-    if (formattedTime.length <= 5) {
-      setJobDetails(prev => ({ ...prev, time: formattedTime }));
+    try {
+      // Supprimer tous les caractères non numériques
+      const numericValue = value.replace(/\D/g, '');
+      
+      // Si pas de chiffres, vider le champ
+      if (!numericValue) {
+        setJobDetails(prev => ({ ...prev, time: '' }));
+        return;
+      }
+      
+      let formattedTime = numericValue;
+      
+      // Formater automatiquement avec ":"
+      if (numericValue.length >= 3) {
+        const hours = numericValue.slice(0, 2);
+        const minutes = numericValue.slice(2, 4);
+        formattedTime = `${hours}:${minutes}`;
+      }
+      
+      // Limiter à 5 caractères (HH:MM)
+      if (formattedTime.length <= 5) {
+        setJobDetails(prev => ({ ...prev, time: formattedTime }));
+      }
+    } catch (error) {
+      console.warn('Error formatting time:', error);
+      // En cas d'erreur, ne pas mettre à jour
     }
   };
 
   // Formatage automatique pour la date (DD/MM/YYYY)
   const handleDateChange = (value: string): void => {
-    // Supprimer tous les caractères non numériques
-    const numericValue = value.replace(/\D/g, '');
-    
-    let formattedDate = numericValue;
-    
-    // Formater automatiquement avec "/"
-    if (numericValue.length >= 3) {
-      const day = numericValue.slice(0, 2);
-      const month = numericValue.slice(2, 4);
-      const year = numericValue.slice(4, 8);
+    try {
+      // Supprimer tous les caractères non numériques
+      const numericValue = value.replace(/\D/g, '');
       
-      if (numericValue.length <= 4) {
-        formattedDate = `${day}/${month}`;
-      } else {
-        formattedDate = `${day}/${month}/${year}`;
+      // Si pas de chiffres, vider le champ
+      if (!numericValue) {
+        setJobDetails(prev => ({ ...prev, date: '' }));
+        return;
       }
-    }
-    
-    // Limiter à 10 caractères (DD/MM/YYYY)
-    if (formattedDate.length <= 10) {
-      setJobDetails(prev => ({ ...prev, date: formattedDate }));
+      
+      let formattedDate = numericValue;
+      
+      // Formater automatiquement avec "/"
+      if (numericValue.length >= 3) {
+        const day = numericValue.slice(0, 2);
+        const month = numericValue.slice(2, 4);
+        const year = numericValue.slice(4, 8);
+        
+        if (numericValue.length <= 4) {
+          formattedDate = `${day}/${month}`;
+        } else {
+          formattedDate = `${day}/${month}/${year}`;
+        }
+      }
+      
+      // Limiter à 10 caractères (DD/MM/YYYY)
+      if (formattedDate.length <= 10) {
+        setJobDetails(prev => ({ ...prev, date: formattedDate }));
+      }
+    } catch (error) {
+      console.warn('Error formatting date:', error);
+      // En cas d'erreur, ne pas mettre à jour
     }
   };
 
