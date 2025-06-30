@@ -3,16 +3,15 @@ import {
   StyleSheet, 
   Text, 
   View, 
-  TextInput, 
   TouchableOpacity, 
   ScrollView,
   Alert,
   KeyboardAvoidingView,
-  Platform,
-  KeyboardTypeOptions
+  Platform
 } from 'react-native';
 import { router } from 'expo-router';
 import { ArrowLeft, Calendar, Clock, MapPin, DollarSign } from 'lucide-react-native';
+import { JobInput } from '../../components/JobInput';
 
 // Types pour les détails du job
 interface JobDetails {
@@ -27,18 +26,6 @@ interface JobDetails {
 // Type pour les clés de JobDetails
 type JobDetailKeys = keyof JobDetails;
 
-// Props pour le composant JobInput
-interface JobInputProps {
-  icon?: React.ReactElement<any>;
-  label: string;
-  field: JobDetailKeys;
-  placeholder: string;
-  keyboardType?: KeyboardTypeOptions;
-  multiline?: boolean;
-  value: string;
-  onChangeText: (text: string) => void;
-}
-
 export default function NewJobScreen() {
   // State regroupé dans un objet avec typage
   const [jobDetails, setJobDetails] = useState<JobDetails>({
@@ -49,39 +36,6 @@ export default function NewJobScreen() {
     pricePerDay: '',
     notes: ''
   });
-
-  // Composant Input réutilisable - DÉPLACÉ À L'INTÉRIEUR du composant principal
-  const JobInput: React.FC<JobInputProps> = ({ 
-    icon, 
-    label, 
-    field, 
-    placeholder, 
-    keyboardType = 'default', 
-    multiline = false,
-    value,
-    onChangeText 
-  }) => (
-    <View style={styles.inputGroup}>
-      <Text style={styles.label}>{label}</Text>
-      <View style={[styles.inputContainer, multiline && styles.textAreaContainer]}>
-        {icon && React.cloneElement(icon, { 
-          size: 20, 
-          color: '#666', 
-          style: styles.inputIcon 
-        })}
-        <TextInput
-          style={[styles.input, multiline && styles.textArea]}
-          placeholder={placeholder}
-          value={value}
-          onChangeText={onChangeText}
-          keyboardType={keyboardType}
-          multiline={multiline}
-          numberOfLines={multiline ? 4 : 1}
-          textAlignVertical={multiline ? 'top' : 'center'}
-        />
-      </View>
-    </View>
-  );
 
   // Gestion centralisée des changements avec types
   const handleChange = (field: JobDetailKeys, value: string): void => {
@@ -204,7 +158,6 @@ export default function NewJobScreen() {
         <JobInput
           icon={<MapPin />}
           label="Location"
-          field="location"
           placeholder="Enter exact address"
           value={jobDetails.location}
           onChangeText={(text) => handleChange('location', text)}
@@ -213,7 +166,6 @@ export default function NewJobScreen() {
         <JobInput
           icon={<Calendar />}
           label="Start Date"
-          field="date"
           placeholder="DD/MM/YYYY"
           keyboardType="numeric"
           value={jobDetails.date}
@@ -223,7 +175,6 @@ export default function NewJobScreen() {
         <JobInput
           icon={<Clock />}
           label="Start Time"
-          field="time"
           placeholder="HH:MM"
           keyboardType="numeric"
           value={jobDetails.time}
@@ -233,7 +184,6 @@ export default function NewJobScreen() {
         <JobInput
           icon={<Calendar />}
           label="Duration (days)"
-          field="duration"
           placeholder="Number of days"
           keyboardType="numeric"
           value={jobDetails.duration}
@@ -243,7 +193,6 @@ export default function NewJobScreen() {
         <JobInput
           icon={<DollarSign />}
           label="Price per Day (Kz)"
-          field="pricePerDay"
           placeholder="Amount in Kz"
           keyboardType="numeric"
           value={jobDetails.pricePerDay}
@@ -259,7 +208,6 @@ export default function NewJobScreen() {
 
         <JobInput
           label="Additional Notes"
-          field="notes"
           placeholder="Special instructions, preferences..."
           multiline={true}
           value={jobDetails.notes}
@@ -319,40 +267,6 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     padding: 20,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-    color: '#2c3e50',
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f8f9fa',
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    height: 50,
-  },
-  textAreaContainer: {
-    height: 120,
-    alignItems: 'flex-start',
-    paddingTop: 12,
-  },
-  inputIcon: {
-    marginRight: 12,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: '#333',
-  },
-  textArea: {
-    height: 100,
-    textAlignVertical: 'top',
   },
   totalPriceContainer: {
     backgroundColor: '#e8f5e9',
