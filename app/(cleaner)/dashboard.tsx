@@ -11,13 +11,20 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { REQUESTS, EMPLOYERS } from '@/data/mockData';
 import { Plus, User, CircleHelp as HelpCircle, LogOut } from 'lucide-react-native';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function DashboardScreen() {
+  const { signOut } = useAuth();
   // Get pending requests
   const pendingRequests = REQUESTS.filter(req => req.status === 'pending');
   
-  const handleLogout = () => {
-    router.replace('/');
+   const handleLogout = async () => {
+    try {
+      await signOut();
+      router.replace('/'); 
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
   };
   
   return (

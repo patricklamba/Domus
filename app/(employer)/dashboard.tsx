@@ -13,7 +13,7 @@ import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { CLEANERS } from '@/data/mockData';
 import { Search, Filter, Star, MapPin, Clock, Calendar, Plus, User, CircleHelp as HelpCircle, LogOut } from 'lucide-react-native';
-
+import { useAuth } from '@/contexts/AuthContext';
 interface SortButtonProps {
   icon: React.ReactElement;
   label: string;
@@ -37,6 +37,7 @@ interface AvailabilityBadgeProps {
 }
 
 export default function EmployerDashboard() {
+  const { signOut } = useAuth(); 
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'rating' | 'price'>('rating');
   const [showFilters, setShowFilters] = useState(false);
@@ -51,8 +52,13 @@ export default function EmployerDashboard() {
     !searchQuery || cleaner.location.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleLogout = () => {
-    router.replace('/');
+const handleLogout = async () => {
+    try {
+      await signOut();
+      router.replace('/'); 
+    } catch (error) {
+      console.error('Error logging out:', error);
+    }
   };
 
   return (
@@ -167,7 +173,7 @@ const SortButton: React.FC<SortButtonProps> = ({ icon, label, active, onPress })
     style={[styles.sortButton, active && styles.sortButtonActive]}
     onPress={onPress}
   >
-    {React.cloneElement(icon, { 
+    {React.cloneElement(icon as React.ReactElement<any>, { 
       color: active ? "#3498db" : "#666" 
     })}
     <Text style={[styles.sortButtonText, active && styles.sortButtonTextActive]}>
