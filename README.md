@@ -65,7 +65,7 @@ Zelare is a full-stack application consisting of a React Native mobile app and a
 - **Platform Support**: iOS, Android, Web
 
 ### Backend
-- **Framework**: Spring Boot 3.2
+- **Framework**: Spring Boot 3.5.5
 - **Security**: Spring Security 6 + JWT
 - **Database**: PostgreSQL 15+
 - **ORM**: JPA/Hibernate
