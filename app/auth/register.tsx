@@ -1,3 +1,4 @@
+// app/auth/register.tsx - Modified to use Zelare API
 import React, { useState } from 'react';
 import { 
   StyleSheet, 
@@ -12,14 +13,13 @@ import {
 } from 'react-native';
 import { Link, router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useAuth } from '@/contexts/AuthContext';
+import { zelareApi } from '@/lib/api'; // Import Zelare API instead of useAuth for registration
 
 export default function RegisterScreen() {
   const [name, setName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [role, setRole] = useState<'employer' | 'cleaner' | null>(null);
   const [loading, setLoading] = useState(false);
-  const { signInWithPhone } = useAuth();
   
   const handleRegister = async () => {
     if (!name || name.length < 3) {
@@ -44,22 +44,49 @@ export default function RegisterScreen() {
       ? phoneNumber 
       : `+244${phoneNumber}`;
     
-    const { error } = await signInWithPhone(formattedPhone);
-    
-    if (error) {
-      Alert.alert('Error', error.message);
-      setLoading(false);
-    } else {
-      // Navigate to OTP verification with registration data
-      router.push({
-        pathname: '/auth/verify-otp',
-        params: { 
-          phone: formattedPhone, 
-          type: 'register',
-          name,
-          role
-        }
+    try {
+      console.log('Starting registration for:', formattedPhone, 'as', role);
+      
+      // First register the user with Zelare API
+      const registerResponse = await zelareApi.register({
+        phoneNumber: formattedPhone,
+        fullName: name,
+        role: role.toUpperCase() as 'EMPLOYER' | 'CLEANER'
       });
+
+      console.log('Registration response:', registerResponse);
+
+      if (registerResponse.success) {
+        console.log('User registered successfully, sending OTP...');
+        
+        // Then send OTP
+        const otpResponse = await zelareApi.sendOtp(formattedPhone);
+        
+        console.log('OTP response:', otpResponse);
+        
+        if (otpResponse.success) {
+          console.log('OTP sent successfully, navigating to verification...');
+          
+          // Navigate to OTP verification with registration data
+          router.push({
+            pathname: '/auth/verify-otp',
+            params: { 
+              phone: formattedPhone, 
+              type: 'register',
+              name,
+              role
+            }
+          });
+        } else {
+          Alert.alert('Error', otpResponse.message || 'Failed to send OTP');
+        }
+      } else {
+        Alert.alert('Error', registerResponse.message || 'Registration failed');
+      }
+    } catch (error: any) {
+      console.error('Registration error:', error);
+      Alert.alert('Error', error.message || 'Registration failed');
+    } finally {
       setLoading(false);
     }
   };
@@ -74,7 +101,7 @@ export default function RegisterScreen() {
         <View style={styles.header}>
           <Text style={styles.emoji}>📝</Text>
           <Text style={styles.title}>Create Account</Text>
-          <Text style={styles.subtitle}>Join Domus Angola today</Text>
+          <Text style={styles.subtitle}>Join Zelare Angola today</Text>
         </View>
         
         <View style={styles.form}>
@@ -107,7 +134,7 @@ export default function RegisterScreen() {
               style={[styles.roleButton, role === 'employer' ? styles.roleButtonSelected : null]}
               onPress={() => setRole('employer')}
             >
-              <Text style={styles.roleEmoji}>👔</Text>
+              <Text style={styles.roleEmoji}>🏠</Text>
               <Text style={styles.roleText}>Employer</Text>
               <Text style={styles.roleDescription}>Looking for cleaners</Text>
             </TouchableOpacity>
@@ -131,7 +158,7 @@ export default function RegisterScreen() {
             disabled={!name || !phoneNumber || !role || loading}
           >
             <Text style={styles.buttonText}>
-              {loading ? 'Sending...' : 'Send Verification Code'}
+              {loading ? 'Creating Account...' : 'Create Account'}
             </Text>
           </TouchableOpacity>
           
@@ -149,6 +176,7 @@ export default function RegisterScreen() {
   );
 }
 
+// Keep existing styles from your original file
 const styles = StyleSheet.create({
   container: {
     flex: 1,

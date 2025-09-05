@@ -1,13 +1,23 @@
+// contexts/AuthContext.tsx - Modified version for Zelare API
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Session, User, AuthChangeEvent } from '@supabase/supabase-js';
-import { supabase } from '@/lib/supabase';
-import { Database } from '@/types/database';
+import { zelareApi, UserResponse } from '@/lib/api'
 
-type Profile = Database['public']['Tables']['profiles']['Row'];
+// Adapt types to match your existing interface
+interface Profile {
+  id: string;
+  email: string;
+  full_name: string;
+  phone_number: string;
+  role: 'employer' | 'cleaner'; // Conversion from EMPLOYER/CLEANER
+  avatar_url: string | null;
+  location: string | null;
+  created_at: string;
+  updated_at: string;
+}
 
 interface AuthContextType {
-  session: Session | null;
-  user: User | null;
+  session: any | null; // Compatibility with old code
+  user: any | null;    // Compatibility with old code
   profile: Profile | null;
   loading: boolean;
   signInWithPhone: (phone: string) => Promise<{ error: any }>;
@@ -19,139 +29,170 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<any>(null);
+  const [user, setUser] = useState<any>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    console.log('AuthContext: Initialisation...');
-    
-    // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('AuthContext: Session initiale récupérée:', session?.user?.id || 'null');
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        fetchProfile(session.user.id);
-      } else {
-        setLoading(false);
-      }
-    });
-
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event: AuthChangeEvent, session: Session | null) => {
-        console.log('AuthContext onAuthStateChange:', event, 'User ID:', session?.user?.id || 'null');
-        setSession(session);
-        setUser(session?.user ?? null);
-        
-        if (session?.user) {
-          console.log('AuthContext: Utilisateur connecté, récupération du profil...');
-          await fetchProfile(session.user.id);
-        } else {
-          console.log('AuthContext: Utilisateur déconnecté');
-          setProfile(null);
-          setLoading(false);
-        }
-      }
-    );
-
-    return () => {
-      console.log('AuthContext: Nettoyage subscription');
-      subscription.unsubscribe();
-    };
+    console.log('AuthContext Zelare: Initialization...');
+    checkAuthStatus();
   }, []);
 
-  const fetchProfile = async (userId: string) => {
-    console.log('AuthContext fetchProfile: Recherche profil pour userId:', userId);
+  const checkAuthStatus = async () => {
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-
-      console.log('AuthContext fetchProfile: Résultat -', { 
-        data: data ? { id: data.id, role: data.role, full_name: data.full_name } : null, 
-        error: error?.message || null 
-      });
-
-      if (error && error.code !== 'PGRST116') {
-        console.error('AuthContext fetchProfile: Erreur:', error);
-        setProfile(null);
+      setLoading(true);
+      const isAuth = await zelareApi.isAuthenticated();
+      
+      if (isAuth) {
+        const response = await zelareApi.getCurrentUser();
+        if (response.success) {
+          const userData = response.data;
+          setUserFromResponse(userData);
+        } else {
+          clearAuth();
+        }
       } else {
-        console.log('AuthContext fetchProfile: Profile défini avec rôle:', data?.role);
-        setProfile(data);
+        clearAuth();
       }
     } catch (error) {
-      console.error('AuthContext fetchProfile: Exception:', error);
-      setProfile(null);
+      console.error('Auth check failed:', error);
+      clearAuth();
     } finally {
-      console.log('AuthContext fetchProfile: Loading terminé');
       setLoading(false);
     }
   };
 
-  const signInWithPhone = async (phone: string) => {
-    console.log('AuthContext signInWithPhone:', phone);
-    const { error } = await supabase.auth.signInWithOtp({
-      phone: phone,
+  const setUserFromResponse = (userData: UserResponse) => {
+    // Create a session object compatible with old code
+    const mockSession = {
+      access_token: 'zelare-token',
+      user: {
+        id: userData.id,
+        email: userData.email || '',
+        phone: userData.phoneNumber,
+      }
+    };
+
+    // Convert UserResponse to Profile for compatibility
+    const profileData: Profile = {
+      id: userData.id,
+      email: userData.email || '',
+      full_name: userData.fullName,
+      phone_number: userData.phoneNumber,
+      role: userData.role.toLowerCase() as 'employer' | 'cleaner',
+      avatar_url: userData.avatarUrl || null,
+      location: userData.location || null,
+      created_at: userData.createdAt,
+      updated_at: userData.updatedAt,
+    };
+
+    setSession(mockSession);
+    setUser(mockSession.user);
+    setProfile(profileData);
+
+    console.log('AuthContext Zelare: User connected:', {
+      id: userData.id,
+      role: profileData.role,
+      name: userData.fullName
     });
-    console.log('AuthContext signInWithPhone result:', error ? 'Erreur' : 'Succès');
-    return { error };
+  };
+
+  const clearAuth = () => {
+    setSession(null);
+    setUser(null);
+    setProfile(null);
+  };
+
+  const signInWithPhone = async (phone: string) => {
+    console.log('AuthContext Zelare signInWithPhone:', phone);
+    try {
+      const response = await zelareApi.sendOtp(phone);
+      if (response.success) {
+        console.log('AuthContext Zelare: OTP sent successfully');
+        return { error: null };
+      } else {
+        console.error('AuthContext Zelare: OTP sending error:', response.message);
+        return { error: new Error(response.message) };
+      }
+    } catch (error: any) {
+      console.error('AuthContext Zelare signInWithPhone error:', error);
+      return { error };
+    }
   };
 
   const verifyOtp = async (phone: string, otp: string) => {
-    console.log('AuthContext verifyOtp:', phone, otp);
-    const { error } = await supabase.auth.verifyOtp({
-      phone: phone,
-      token: otp,
-      type: 'sms',
-    });
-    console.log('AuthContext verifyOtp result:', error ? `Erreur: ${error.message}` : 'Succès');
-    return { error };
+    console.log('AuthContext Zelare verifyOtp:', phone, otp);
+    try {
+      const response = await zelareApi.verifyOtp(phone, otp);
+      if (response.success) {
+        setUserFromResponse(response.data.user);
+        console.log('AuthContext Zelare: Login successful');
+        return { error: null };
+      } else {
+        console.error('AuthContext Zelare: OTP verification error:', response.message);
+        return { error: new Error(response.message) };
+      }
+    } catch (error: any) {
+      console.error('AuthContext Zelare verifyOtp error:', error);
+      return { error };
+    }
   };
 
   const signOut = async () => {
-    console.log('AuthContext signOut');
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      console.error('AuthContext signOut: Erreur:', error);
-    } else {
-      console.log('AuthContext signOut: Succès');
+    console.log('AuthContext Zelare signOut');
+    try {
+      await zelareApi.logout();
+    } catch (error) {
+      console.error('AuthContext Zelare signOut error:', error);
+    } finally {
+      clearAuth();
     }
   };
 
   const updateProfile = async (updates: Partial<Profile>) => {
-    console.log('AuthContext updateProfile:', updates);
-    if (!user) {
-      console.error('AuthContext updateProfile: Pas d\'utilisateur connecté');
-      return { error: new Error('No user found') };
+    console.log('AuthContext Zelare updateProfile:', updates);
+    try {
+      // Adapt fields for Zelare API
+      // Adapt fields for Zelare API, filtering out null values
+const apiUpdates: {
+  fullName?: string;
+  email?: string;
+  location?: string;
+  avatarUrl?: string;
+} = {};
+
+if (updates.full_name !== undefined) {
+  apiUpdates.fullName = updates.full_name;
+}
+if (updates.email !== undefined) {
+  apiUpdates.email = updates.email;
+}
+if (updates.location !== undefined && updates.location !== null) {
+  apiUpdates.location = updates.location;
+}
+if (updates.avatar_url !== undefined && updates.avatar_url !== null) {
+  apiUpdates.avatarUrl = updates.avatar_url;
+}
+
+      const response = await zelareApi.updateProfile(apiUpdates);
+      if (response.success) {
+        setUserFromResponse(response.data);
+        console.log('AuthContext Zelare: Profile updated');
+        return { error: null };
+      } else {
+        console.error('AuthContext Zelare: Profile update error:', response.message);
+        return { error: new Error(response.message) };
+      }
+    } catch (error: any) {
+      console.error('AuthContext Zelare updateProfile error:', error);
+      return { error };
     }
-
-    const { error } = await supabase
-      .from('profiles')
-      .upsert({
-        id: user.id,
-        email: user.email || '',
-        ...updates,
-        updated_at: new Date().toISOString(),
-      });
-
-    if (!error) {
-      console.log('AuthContext updateProfile: Succès, récupération du profil mis à jour');
-      await fetchProfile(user.id);
-    } else {
-      console.error('AuthContext updateProfile: Erreur:', error);
-    }
-
-    return { error };
   };
 
-  // Log des changements d'état importants
+  // Log state changes
   useEffect(() => {
-    console.log('AuthContext STATE UPDATE:', {
+    console.log('AuthContext Zelare STATE:', {
       hasSession: !!session,
       hasUser: !!user,
       hasProfile: !!profile,
