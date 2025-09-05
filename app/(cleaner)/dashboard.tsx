@@ -1,24 +1,98 @@
-import React from 'react';
+// app/(cleaner)/dashboard.tsx - Updated to use real API data
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
   View, 
   TouchableOpacity, 
   ScrollView,
-  Platform 
+  Platform,
+  Alert,
+  RefreshControl,
+  ActivityIndicator
 } from 'react-native';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { REQUESTS, EMPLOYERS } from '@/data/mockData';
 import { Plus, User, CircleHelp as HelpCircle, LogOut } from 'lucide-react-native';
 import { useAuth } from '@/contexts/AuthContext';
+import { zelareApi } from '@/lib/api';
+
+interface CleanerProfileData {
+  id: string;
+  userId: string;
+  available: boolean;
+  rating?: number;
+  completedJobs?: number;
+  hourlyRate?: number;
+  description?: string;
+  services?: string[];
+}
 
 export default function DashboardScreen() {
-  const { signOut } = useAuth();
-  // Get pending requests
-  const pendingRequests = REQUESTS.filter(req => req.status === 'pending');
+  const { signOut, profile, user } = useAuth();
+  const [cleanerProfile, setCleanerProfile] = useState<CleanerProfileData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isAvailable, setIsAvailable] = useState(false);
   
-   const handleLogout = async () => {
+  useEffect(() => {
+    loadCleanerProfile();
+  }, []);
+
+  const loadCleanerProfile = async () => {
+    try {
+      setLoading(true);
+      const response = await zelareApi.getCleanerProfile();
+      
+      if (response.success) {
+        setCleanerProfile(response.data);
+        setIsAvailable(response.data.available || false);
+        console.log('Cleaner profile loaded:', response.data);
+      } else {
+        console.error('Failed to load cleaner profile:', response.message);
+        // If no cleaner profile exists, we might need to create one
+        if (response.message.includes('not found') || response.message.includes('not configured')) {
+          // Profile not set up yet - this is normal for new users
+          setCleanerProfile(null);
+        } else {
+          Alert.alert('Error', 'Failed to load your profile. Please try again.');
+        }
+      }
+    } catch (error) {
+      console.error('Error loading cleaner profile:', error);
+      Alert.alert('Error', 'Failed to load your profile. Please check your connection.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadCleanerProfile();
+    setRefreshing(false);
+  };
+
+  const toggleAvailability = async () => {
+    try {
+      const newAvailability = !isAvailable;
+      const response = await zelareApi.updateCleanerAvailability(newAvailability);
+      
+      if (response.success) {
+        setIsAvailable(newAvailability);
+        Alert.alert(
+          'Status Updated', 
+          newAvailability ? 'You are now available for jobs' : 'You are now unavailable for jobs'
+        );
+      } else {
+        Alert.alert('Error', response.message || 'Failed to update availability');
+      }
+    } catch (error) {
+      console.error('Error updating availability:', error);
+      Alert.alert('Error', 'Failed to update availability. Please try again.');
+    }
+  };
+  
+  const handleLogout = async () => {
     try {
       await signOut();
       router.replace('/'); 
@@ -27,25 +101,47 @@ export default function DashboardScreen() {
     }
   };
   
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color="#3498db" />
+        <Text style={styles.loadingText}>Loading your dashboard...</Text>
+      </View>
+    );
+  }
+
+  const displayName = profile?.full_name || user?.email || 'Cleaner';
+  const firstName = displayName.split(' ')[0];
+  
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
       
-      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.content}>
+      <ScrollView 
+        style={styles.scrollContainer} 
+        contentContainerStyle={styles.content}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+        }
+      >
         <View style={styles.header}>
-          <Text style={styles.title}>Welcome, Maria!</Text>
+          <Text style={styles.title}>Welcome, {firstName}!</Text>
         </View>
         
         <View style={styles.statusCard}>
           <View style={styles.statusInfo}>
             <Text style={styles.statusTitle}>Your Status</Text>
-            <Text style={styles.statusValue}>🟢 Available for instant jobs</Text>
+            <Text style={styles.statusValue}>
+              {isAvailable ? '🟢 Available for instant jobs' : '🔴 Currently unavailable'}
+            </Text>
           </View>
           <TouchableOpacity 
             style={styles.changeStatusButton}
-            onPress={() => router.push('/(cleaner)/availability')}
+            onPress={toggleAvailability}
           >
-            <Text style={styles.changeStatusText}>Change</Text>
+            <Text style={styles.changeStatusText}>
+              {isAvailable ? 'Go Offline' : 'Go Online'}
+            </Text>
           </TouchableOpacity>
         </View>
         
@@ -55,9 +151,9 @@ export default function DashboardScreen() {
             onPress={() => router.push('/(cleaner)/requests')}
           >
             <Text style={styles.actionEmoji}>📅</Text>
-            <Text style={styles.actionTitle}>Pending Requests</Text>
+            <Text style={styles.actionTitle}>Job Requests</Text>
             <View style={styles.badgeContainer}>
-              <Text style={styles.badgeText}>{pendingRequests.length}</Text>
+              <Text style={styles.badgeText}>0</Text>
             </View>
           </TouchableOpacity>
           
@@ -68,7 +164,7 @@ export default function DashboardScreen() {
             <Text style={styles.actionEmoji}>💬</Text>
             <Text style={styles.actionTitle}>Messages</Text>
             <View style={styles.badgeContainer}>
-              <Text style={styles.badgeText}>3</Text>
+              <Text style={styles.badgeText}>0</Text>
             </View>
           </TouchableOpacity>
           
@@ -89,99 +185,66 @@ export default function DashboardScreen() {
           </TouchableOpacity>
         </View>
         
+        {/* Profile Setup Warning for new users */}
+        {!cleanerProfile && (
+          <View style={styles.setupWarning}>
+            <Text style={styles.setupWarningTitle}>Complete Your Profile</Text>
+            <Text style={styles.setupWarningText}>
+              Set up your cleaner profile to start receiving job requests
+            </Text>
+            <TouchableOpacity 
+              style={styles.setupButton}
+              onPress={() => router.push('/(cleaner)/profile')}
+            >
+              <Text style={styles.setupButtonText}>Complete Profile</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+        
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Jobs</Text>
-          
-          {pendingRequests.length > 0 ? (
-            pendingRequests.map((request) => {
-              const employer = EMPLOYERS.find(e => e.id === request.employerId);
-              return (
-                <View key={request.id} style={styles.requestCard}>
-                  <View style={styles.requestHeader}>
-                    <Text style={styles.employerName}>{employer?.name || 'Unknown'}</Text>
-                    <Text style={styles.requestDate}>{request.date}</Text>
-                  </View>
-                  
-                  <View style={styles.requestDetails}>
-                    <Text style={styles.requestLocation}>📍 {request.location}</Text>
-                    <Text style={styles.requestTime}>🕒 {request.time}</Text>
-                    <Text style={styles.requestPrice}>💰 {request.price} Kz</Text>
-                  </View>
-                  
-                  <View style={styles.requestActions}>
-                    <TouchableOpacity 
-                      style={[styles.requestButton, styles.acceptButton]}
-                      onPress={() => router.push(`/(cleaner)/request-details/${request.id}`)}
-                    >
-                      <Text style={styles.acceptButtonText}>Accept</Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity 
-                      style={[styles.requestButton, styles.declineButton]}
-                      onPress={() => router.push(`/(cleaner)/request-details/${request.id}`)}
-                    >
-                      <Text style={styles.declineButtonText}>Decline</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            })
-          ) : (
-            <Text style={styles.noRequestsText}>No pending requests</Text>
-          )}
+          <Text style={styles.sectionTitle}>Today's Jobs</Text>
+          <Text style={styles.noRequestsText}>No jobs scheduled for today</Text>
         </View>
         
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Upcoming Jobs</Text>
-          
-          {REQUESTS.filter(req => req.status === 'accepted').length > 0 ? (
-            REQUESTS.filter(req => req.status === 'accepted').map((request) => {
-              const employer = EMPLOYERS.find(e => e.id === request.employerId);
-              return (
-                <View key={request.id} style={styles.jobCard}>
-                  <View style={styles.jobHeader}>
-                    <Text style={styles.employerName}>{employer?.name || 'Unknown'}</Text>
-                    <View style={styles.jobStatusBadge}>
-                      <Text style={styles.jobStatusText}>Confirmed</Text>
-                    </View>
-                  </View>
-                  
-                  <View style={styles.jobDetails}>
-                    <Text style={styles.jobInfo}>📍 {request.location}</Text>
-                    <Text style={styles.jobInfo}>📅 {request.date}</Text>
-                    <Text style={styles.jobInfo}>🕒 {request.time}</Text>
-                    <Text style={styles.jobPrice}>💰 {request.price} Kz</Text>
-                  </View>
-                </View>
-              );
-            })
-          ) : (
-            <Text style={styles.noRequestsText}>No upcoming jobs</Text>
-          )}
-        </View>
-        
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Stats</Text>
+          <Text style={styles.sectionTitle}>Your Stats</Text>
           
           <View style={styles.statsCard}>
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>32</Text>
+              <Text style={styles.statValue}>
+                {cleanerProfile?.completedJobs || 0}
+              </Text>
               <Text style={styles.statLabel}>Jobs Completed</Text>
             </View>
             
             <View style={styles.statDivider} />
             
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>4.8</Text>
+              <Text style={styles.statValue}>
+                {cleanerProfile?.rating ? cleanerProfile.rating.toFixed(1) : 'N/A'}
+              </Text>
               <Text style={styles.statLabel}>Average Rating</Text>
             </View>
             
             <View style={styles.statDivider} />
             
             <View style={styles.statItem}>
-              <Text style={styles.statValue}>95%</Text>
-              <Text style={styles.statLabel}>On-time Rate</Text>
+              <Text style={styles.statValue}>
+                {cleanerProfile?.hourlyRate ? `${cleanerProfile.hourlyRate}` : 'N/A'}
+              </Text>
+              <Text style={styles.statLabel}>Hourly Rate (Kz)</Text>
             </View>
+          </View>
+        </View>
+
+        {/* Account Status */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Account Status</Text>
+          <View style={styles.statusInfo}>
+            <Text style={styles.statusLabel}>Phone Verified: </Text>
+            <Text style={[styles.statusBadge, { color: profile?.phone_number ? '#2ecc71' : '#e74c3c' }]}>
+              {profile?.phone_number ? '✅ Verified' : '❌ Not Verified'}
+            </Text>
           </View>
         </View>
       </ScrollView>
@@ -230,11 +293,20 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'white',
   },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+  },
   scrollContainer: {
     flex: 1,
   },
   content: {
-    paddingBottom: 100, // Add padding to account for bottom nav
+    paddingBottom: 100,
   },
   header: {
     paddingTop: 60,
@@ -267,6 +339,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#2E7D32',
   },
+  statusLabel: {
+    fontSize: 16,
+    color: '#666',
+  },
+  statusBadge: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
   changeStatusButton: {
     backgroundColor: 'white',
     paddingHorizontal: 16,
@@ -277,6 +357,38 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#2E7D32',
+  },
+  setupWarning: {
+    backgroundColor: '#fff3cd',
+    margin: 24,
+    marginTop: 8,
+    padding: 16,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#ffc107',
+  },
+  setupWarningTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#856404',
+    marginBottom: 8,
+  },
+  setupWarningText: {
+    fontSize: 16,
+    color: '#856404',
+    marginBottom: 16,
+  },
+  setupButton: {
+    backgroundColor: '#ffc107',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  setupButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#856404',
   },
   quickActions: {
     flexDirection: 'row',
@@ -328,111 +440,12 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     marginBottom: 16,
   },
-  requestCard: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  requestHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  employerName: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  requestDate: {
-    fontSize: 14,
-    color: '#666',
-  },
-  requestDetails: {
-    marginBottom: 16,
-    gap: 8,
-  },
-  requestLocation: {
-    fontSize: 16,
-  },
-  requestTime: {
-    fontSize: 16,
-  },
-  requestPrice: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#2E7D32',
-  },
-  requestActions: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  requestButton: {
-    flex: 1,
-    height: 44,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  acceptButton: {
-    backgroundColor: '#2ecc71',
-  },
-  acceptButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: 'white',
-  },
-  declineButton: {
-    backgroundColor: '#F5F5F5',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  declineButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
-  },
   noRequestsText: {
     fontSize: 16,
     color: '#999',
     fontStyle: 'italic',
     textAlign: 'center',
     padding: 16,
-  },
-  jobCard: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: '#3498db',
-  },
-  jobHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  jobStatusBadge: {
-    backgroundColor: '#E3F2FD',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 16,
-  },
-  jobStatusText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1565C0',
-  },
-  jobDetails: {
-    gap: 8,
-  },
-  jobInfo: {
-    fontSize: 16,
-  },
-  jobPrice: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#2E7D32',
-    marginTop: 4,
   },
   statsCard: {
     backgroundColor: '#F5F5F5',

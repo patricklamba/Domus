@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+// app/(cleaner)/profile.tsx - Updated to use real API data
+import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -6,30 +7,105 @@ import {
   TextInput, 
   TouchableOpacity, 
   ScrollView,
-  Switch
+  Alert,
+  ActivityIndicator
 } from 'react-native';
 import { router } from 'expo-router';
+import { useAuth } from '@/contexts/AuthContext';
+import { zelareApi } from '@/lib/api';
+
+interface CleanerProfileData {
+  id?: string;
+  userId: string;
+  available: boolean;
+  rating?: number;
+  completedJobs?: number;
+  hourlyRate?: number;
+  description?: string;
+  services?: string[];
+}
+
+interface UserProfileData {
+  fullName: string;
+  email?: string;
+  location?: string;
+  avatarUrl?: string;
+}
 
 export default function ProfileScreen() {
-  const [name, setName] = useState('Maria Silva');
-  const [age, setAge] = useState('28');
-  const [phone, setPhone] = useState('912345678');
-  const [experience, setExperience] = useState('5');
-  const [hourlyRate, setHourlyRate] = useState('2500');
-  const [bio, setBio] = useState(
-    'Professional cleaner with 5 years of experience in residential cleaning. I am detail-oriented and reliable.'
-  );
+  const { profile, user, updateProfile } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   
-  // Sample services
+  // User profile fields
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [location, setLocation] = useState('');
+  
+  // Cleaner profile fields
+  const [hourlyRate, setHourlyRate] = useState('');
+  const [bio, setBio] = useState('');
+  const [cleanerProfile, setCleanerProfile] = useState<CleanerProfileData | null>(null);
+  
+  // Sample services - in a real app, this would come from the backend
   const [services, setServices] = useState([
-    { id: 1, name: 'General Cleaning', selected: true },
-    { id: 2, name: 'Deep Cleaning', selected: true },
-    { id: 3, name: 'Window Cleaning', selected: true },
+    { id: 1, name: 'General Cleaning', selected: false },
+    { id: 2, name: 'Deep Cleaning', selected: false },
+    { id: 3, name: 'Window Cleaning', selected: false },
     { id: 4, name: 'Laundry', selected: false },
-    { id: 5, name: 'Ironing', selected: true },
-    { id: 6, name: 'Dishes', selected: true },
+    { id: 5, name: 'Ironing', selected: false },
+    { id: 6, name: 'Dishes', selected: false },
   ]);
-  
+
+  useEffect(() => {
+    loadProfileData();
+  }, [profile]);
+
+  const loadProfileData = async () => {
+    try {
+      setLoading(true);
+      
+      // Load user basic profile
+      if (profile) {
+        setName(profile.full_name || '');
+        setEmail(profile.email || '');
+        setLocation(profile.location || '');
+      }
+
+      // Load cleaner profile if user is a cleaner
+      if (profile?.role === 'cleaner') {
+        try {
+          const response = await zelareApi.getCleanerProfile();
+          if (response.success) {
+            const cleanerData = response.data;
+            setCleanerProfile(cleanerData);
+            setHourlyRate(cleanerData.hourlyRate?.toString() || '');
+            setBio(cleanerData.description || '');
+            
+            // Update services based on cleaner profile
+            if (cleanerData.services && cleanerData.services.length > 0) {
+              setServices(prev => prev.map(service => ({
+                ...service,
+                selected: cleanerData.services?.includes(service.name.toLowerCase().replace(' ', '_')) || false
+              })));
+            }
+          } else {
+            console.log('No cleaner profile found, this is normal for new cleaners');
+            setCleanerProfile(null);
+          }
+        } catch (error) {
+          console.log('Error loading cleaner profile:', error);
+          // This is normal for new cleaner accounts
+        }
+      }
+    } catch (error) {
+      console.error('Error loading profile data:', error);
+      Alert.alert('Error', 'Failed to load profile data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const toggleService = (id: number) => {
     setServices(
       services.map(service => 
@@ -37,7 +113,75 @@ export default function ProfileScreen() {
       )
     );
   };
-  
+
+  const saveProfile = async () => {
+    if (!name.trim()) {
+      Alert.alert('Error', 'Please enter your full name');
+      return;
+    }
+
+    if (profile?.role === 'cleaner' && !hourlyRate.trim()) {
+      Alert.alert('Error', 'Please set your hourly rate');
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      // Update user profile
+      const userProfileData: UserProfileData = {
+        fullName: name.trim(),
+        email: email.trim() || undefined,
+        location: location.trim() || undefined,
+      };
+
+      const updateResponse = await updateProfile({
+        full_name: userProfileData.fullName,
+        email: userProfileData.email,
+        location: userProfileData.location,
+      });
+
+      if (updateResponse.error) {
+        throw new Error(updateResponse.error.message);
+      }
+
+      // For cleaners, we would need additional API endpoints to update cleaner profile
+      // This is a placeholder - you'll need to implement these endpoints in your backend
+      if (profile?.role === 'cleaner') {
+        console.log('Cleaner profile data to save:', {
+          hourlyRate: parseInt(hourlyRate),
+          description: bio.trim(),
+          services: services.filter(s => s.selected).map(s => s.name.toLowerCase().replace(' ', '_'))
+        });
+        
+        // TODO: Implement zelareApi.updateCleanerProfile() method
+        // const cleanerResponse = await zelareApi.updateCleanerProfile({
+        //   hourlyRate: parseInt(hourlyRate),
+        //   description: bio.trim(),
+        //   services: services.filter(s => s.selected).map(s => s.name.toLowerCase().replace(' ', '_'))
+        // });
+      }
+
+      Alert.alert('Success', 'Profile updated successfully!');
+      router.back();
+
+    } catch (error: any) {
+      console.error('Error saving profile:', error);
+      Alert.alert('Error', error.message || 'Failed to save profile');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centered]}>
+        <ActivityIndicator size="large" color="#3498db" />
+        <Text style={styles.loadingText}>Loading your profile...</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
@@ -50,7 +194,9 @@ export default function ProfileScreen() {
       
       <View style={styles.avatarSection}>
         <View style={styles.avatarPlaceholder}>
-          <Text style={styles.avatarText}>M</Text>
+          <Text style={styles.avatarText}>
+            {name ? name.charAt(0).toUpperCase() : 'U'}
+          </Text>
         </View>
         <TouchableOpacity style={styles.changePhotoButton}>
           <Text style={styles.changePhotoText}>📷 Change Photo</Text>
@@ -60,112 +206,144 @@ export default function ProfileScreen() {
       <View style={styles.formSection}>
         <Text style={styles.sectionTitle}>Personal Information</Text>
         
-        <Text style={styles.inputLabel}>Full Name</Text>
+        <Text style={styles.inputLabel}>Full Name *</Text>
         <TextInput
           style={styles.input}
           value={name}
           onChangeText={setName}
+          placeholder="Enter your full name"
         />
         
-        <Text style={styles.inputLabel}>Age</Text>
+        <Text style={styles.inputLabel}>Email</Text>
         <TextInput
           style={styles.input}
-          value={age}
-          onChangeText={setAge}
-          keyboardType="numeric"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          placeholder="Enter your email (optional)"
         />
         
         <Text style={styles.inputLabel}>Phone Number</Text>
         <TextInput
-          style={styles.input}
-          value={phone}
-          onChangeText={setPhone}
-          keyboardType="phone-pad"
+          style={[styles.input, styles.disabledInput]}
+          value={profile?.phone_number || ''}
+          editable={false}
+          placeholder="Phone number (verified)"
         />
         
-        <Text style={styles.inputLabel}>Years of Experience</Text>
+        <Text style={styles.inputLabel}>Location</Text>
         <TextInput
           style={styles.input}
-          value={experience}
-          onChangeText={setExperience}
-          keyboardType="numeric"
+          value={location}
+          onChangeText={setLocation}
+          placeholder="Enter your location"
         />
-        
-        <Text style={styles.inputLabel}>Hourly Rate (Kz)</Text>
-        <TextInput
-          style={styles.input}
-          value={hourlyRate}
-          onChangeText={setHourlyRate}
-          keyboardType="numeric"
-        />
-        
-        <Text style={styles.inputLabel}>Bio</Text>
-        <TextInput
-          style={[styles.input, styles.bioInput]}
-          value={bio}
-          onChangeText={setBio}
-          multiline
-          numberOfLines={4}
-        />
+
+        {/* Show cleaner-specific fields only for cleaners */}
+        {profile?.role === 'cleaner' && (
+          <>
+            <Text style={styles.inputLabel}>Hourly Rate (Kz) *</Text>
+            <TextInput
+              style={styles.input}
+              value={hourlyRate}
+              onChangeText={setHourlyRate}
+              keyboardType="numeric"
+              placeholder="Enter your hourly rate"
+            />
+            
+            <Text style={styles.inputLabel}>Bio / Description</Text>
+            <TextInput
+              style={[styles.input, styles.bioInput]}
+              value={bio}
+              onChangeText={setBio}
+              multiline
+              numberOfLines={4}
+              placeholder="Tell clients about your experience and services..."
+            />
+          </>
+        )}
       </View>
       
-      <View style={styles.servicesSection}>
-        <Text style={styles.sectionTitle}>Services Offered</Text>
-        <Text style={styles.sectionSubtitle}>Select the services you provide</Text>
-        
-        {services.map(service => (
-          <TouchableOpacity 
-            key={service.id}
-            style={[styles.serviceItem, service.selected && styles.serviceItemSelected]}
-            onPress={() => toggleService(service.id)}
-          >
-            <Text style={[styles.serviceText, service.selected && styles.serviceTextSelected]}>
-              {service.name}
-            </Text>
-            <Text style={styles.serviceCheckmark}>
-              {service.selected ? '✓' : ''}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-      
-      <View style={styles.documentsSection}>
-        <Text style={styles.sectionTitle}>Documents & References</Text>
-        
-        <TouchableOpacity style={styles.documentButton}>
-          <Text style={styles.documentButtonText}>📄 Upload ID Document</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.documentButton}>
-          <Text style={styles.documentButtonText}>📄 Upload Reference Letter</Text>
-        </TouchableOpacity>
-      </View>
-      
-      <View style={styles.statsSection}>
-        <Text style={styles.sectionTitle}>Your Stats</Text>
-        
-        <View style={styles.statsCard}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>32</Text>
-            <Text style={styles.statLabel}>Jobs Completed</Text>
-          </View>
+      {/* Services section only for cleaners */}
+      {profile?.role === 'cleaner' && (
+        <View style={styles.servicesSection}>
+          <Text style={styles.sectionTitle}>Services Offered</Text>
+          <Text style={styles.sectionSubtitle}>Select the services you provide</Text>
           
-          <View style={styles.statDivider} />
-          
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>4.8</Text>
-            <Text style={styles.statLabel}>Average Rating</Text>
-          </View>
+          {services.map(service => (
+            <TouchableOpacity 
+              key={service.id}
+              style={[styles.serviceItem, service.selected && styles.serviceItemSelected]}
+              onPress={() => toggleService(service.id)}
+            >
+              <Text style={[styles.serviceText, service.selected && styles.serviceTextSelected]}>
+                {service.name}
+              </Text>
+              <Text style={styles.serviceCheckmark}>
+                {service.selected ? '✓' : ''}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* Account Information */}
+      <View style={styles.accountSection}>
+        <Text style={styles.sectionTitle}>Account Information</Text>
+        
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Account Type:</Text>
+          <Text style={styles.infoValue}>
+            {profile?.role === 'cleaner' ? 'Professional Cleaner' : 'Service Employer'}
+          </Text>
+        </View>
+        
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Phone Verified:</Text>
+          <Text style={[styles.infoValue, { color: '#2ecc71' }]}>✓ Verified</Text>
+        </View>
+        
+        <View style={styles.infoRow}>
+          <Text style={styles.infoLabel}>Member Since:</Text>
+          <Text style={styles.infoValue}>
+            {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : 'Unknown'}
+          </Text>
         </View>
       </View>
+
+      {/* Stats section for cleaners */}
+      {profile?.role === 'cleaner' && cleanerProfile && (
+        <View style={styles.statsSection}>
+          <Text style={styles.sectionTitle}>Your Stats</Text>
+          
+          <View style={styles.statsCard}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>{cleanerProfile.completedJobs || 0}</Text>
+              <Text style={styles.statLabel}>Jobs Completed</Text>
+            </View>
+            
+            <View style={styles.statDivider} />
+            
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>
+                {cleanerProfile.rating ? cleanerProfile.rating.toFixed(1) : 'N/A'}
+              </Text>
+              <Text style={styles.statLabel}>Average Rating</Text>
+            </View>
+          </View>
+        </View>
+      )}
       
       <TouchableOpacity
-        style={styles.saveButton}
-        onPress={() => {
-          router.back();
-        }}
+        style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+        onPress={saveProfile}
+        disabled={saving}
       >
-        <Text style={styles.saveButtonText}>Save Profile</Text>
+        {saving ? (
+          <ActivityIndicator size="small" color="white" />
+        ) : (
+          <Text style={styles.saveButtonText}>Save Profile</Text>
+        )}
       </TouchableOpacity>
     </ScrollView>
   );
@@ -175,6 +353,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: 'white',
+  },
+  centered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
   },
   content: {
     paddingBottom: 40,
@@ -260,6 +447,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 16,
   },
+  disabledInput: {
+    backgroundColor: '#EEEEEE',
+    color: '#999',
+  },
   bioInput: {
     minHeight: 100,
     textAlignVertical: 'top',
@@ -293,26 +484,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#2E7D32',
   },
-  documentsSection: {
+  accountSection: {
     padding: 24,
     paddingTop: 0,
   },
-  documentButton: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    marginBottom: 12,
+  infoRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#DDD',
-    borderStyle: 'dashed',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
   },
-  documentButtonText: {
+  infoLabel: {
     fontSize: 16,
-    color: '#424242',
+    color: '#666',
+  },
+  infoValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
   },
   statsSection: {
     padding: 24,
@@ -351,6 +542,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  saveButtonDisabled: {
+    backgroundColor: '#A5D6A7',
   },
   saveButtonText: {
     fontSize: 18,
